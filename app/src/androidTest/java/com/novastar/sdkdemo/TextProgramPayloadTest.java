@@ -31,7 +31,12 @@ public class TextProgramPayloadTest {
         JSONObject program = TextProgramPayload.create(256, 64);
         assertEquals(256, program.getInt("width"));
         assertEquals(64, program.getInt("height"));
-        assertFalse(program.has("winInfo"));
+        // Real-device verification: without winInfo the terminal renders nothing.
+        JSONObject winInfo = program.getJSONObject("winInfo");
+        assertEquals(128, winInfo.getInt("width"));
+        assertEquals(32, winInfo.getInt("height"));
+        assertEquals(0, winInfo.getInt("left"));
+        assertEquals(0, winInfo.getInt("top"));
         assertEquals(7, TextProgramPayload.make(7, new File("/tmp/sdk")).getInt("programID"));
         assertEquals("/tmp/sdk/program7", TextProgramPayload.transfer("SN", 7,
                 new File("/tmp/sdk/program7")).getJSONObject("sendProgramFilePaths").getString("programPath"));

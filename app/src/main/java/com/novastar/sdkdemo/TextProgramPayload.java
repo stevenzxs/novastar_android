@@ -40,8 +40,15 @@ final class TextProgramPayload {
         return obj("sn", sn);
     }
 
+    /**
+     * Real-device verification showed the terminal does not render the program when
+     * winInfo is absent. winInfo is a half-size window anchored at the origin:
+     * width/2 and height/2 of the outer program size.
+     */
     static JSONObject create(int width, int height) {
-        return obj("name", "program1", "width", width, "height", height);
+        return obj("name", "program1", "width", width, "height", height,
+                "winInfo", obj("height", height / 2, "width", width / 2,
+                        "left", 0, "top", 0, "zindex", 0, "index", 0));
     }
 
     static JSONObject page(int programId, String text, String fontFamily, int fontSize) {
