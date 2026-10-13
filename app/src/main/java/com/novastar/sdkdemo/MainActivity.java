@@ -268,8 +268,7 @@ public class MainActivity extends Activity {
             @Override public void dataCallBack(int code, String data) {
             String safeData = data == null ? "" : data;
             report(operation + " callback code=" + code + " data=" + safeData);
-            if (transfer && code == 65362) return;
-            if (transfer && code == 0 && !safeData.contains("allmediaupdatefinish")) return;
+            if (transfer && !isTransferTerminal(code, safeData)) return;
             result[0] = new Result(code, safeData);
             done.countDown();
             }
@@ -279,6 +278,22 @@ public class MainActivity extends Activity {
         if (result[0].code != 0) throw new Exception(operation + " failed: " + result[0].code + " " + result[0].data);
         report(operation + " succeeded");
         return result[0];
+    }
+
+    /**
+     * Terminal-event filter for program transfer callbacks, per TaurusSDK doc (发布节目):
+     * - 65362 (MEDIA_UPLOADING): upload progress, not terminal
+     * - code 2: terminal program-record event (planlist.json path etc.), not an error
+     * - code 0: terminal only when data carries the completion marker; firmware builds
+     *   differ: the doc shows "all media update finish" (with spaces), some send "Success"
+     * - any other non-zero code (2062/2027/2048/65367...): terminal failure
+     */
+    private static boolean isTransferTerminal(int code, String data) {
+        if (code == 65362) return false;
+        if (code == 2) return false;
+        if (code != 0) return true;
+        String d = data.trim();
+        return d.replace(" ", "").contains("allmediaupdatefinish") || d.equalsIgnoreCase("success");
     }
 
     private void report(final String message) {
