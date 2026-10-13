@@ -1,7 +1,8 @@
 **demo工程环境**：\
-android studio：3.1.3 \
-jdk 1.8 64位 \
-gradle：4.4 \
+android studio：现代版本（支持 AGP 8.x）\
+jdk 17 \
+gradle：8.7（AGP 8.5.2）\
+compileSdk 34，minSdk 21，targetSdk 34 \
 abi：armeabi-v7a,arm64-v8a
 
 **demo发布节目操作步骤**：
