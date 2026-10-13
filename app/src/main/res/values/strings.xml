@@ -1,0 +1,35 @@
+<resources>
+    <string name="app_name">SDKDemo</string>
+    <string name="title_text_program">NovaStar 文本节目</string>
+    <string name="hint_sn">设备 SN（必填）</string>
+    <string name="hint_ip">设备 IP（可选）</string>
+    <string name="hint_user">用户名（默认 admin）</string>
+    <string name="hint_password">密码（默认 123456）</string>
+    <string name="hint_text">请输入要发送的文字</string>
+    <string name="send">发送文本节目</string>
+    <string name="log_title">发送日志</string>
+    <string name="font_family_label">字体</string>
+    <string name="font_size_label">字号</string>
+    <string-array name="font_families">
+        <item>默认（Helvetica）</item>
+        <item>Arial</item>
+        <item>SimHei</item>
+        <item>SimSun</item>
+        <item>Noto Sans CJK SC</item>
+    </string-array>
+    <string-array name="font_sizes">
+        <item>自动适配屏高</item>
+        <item>12</item>
+        <item>16</item>
+        <item>20</item>
+        <item>24</item>
+        <item>32</item>
+        <item>40</item>
+        <item>48</item>
+        <item>60</item>
+        <item>72</item>
+    </string-array>
+    <string name="required">请填写此项</string>
+    <string name="send_success">发送完成，设备已收到节目</string>
+    <string name="send_failed">发送失败：%1$s</string>
+</resources>
