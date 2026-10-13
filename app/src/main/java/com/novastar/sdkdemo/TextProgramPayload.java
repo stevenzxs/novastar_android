@@ -47,7 +47,7 @@ final class TextProgramPayload {
      */
     static JSONObject create(int width, int height) {
         return obj("name", "program1", "width", width, "height", height,
-                "winInfo", obj("height", height / 2, "width", width / 2,
+                "winInfo", obj("height", height, "width", width,
                         "left", 0, "top", 0, "zindex", 0, "index", 0));
     }
 
