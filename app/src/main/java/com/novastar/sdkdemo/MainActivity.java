@@ -30,6 +30,7 @@ public class MainActivity extends Activity {
     private static final long TRANSFER_TIMEOUT_MS = 600000;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private EditText snInput, ipInput, userInput, passwordInput, textInput;
+    private EditText programWidthInput, programHeightInput;
     private Spinner fontFamilySpinner, fontSizeSpinner;
     private TextView statusView;
     private ScrollView logScroll;
@@ -54,6 +55,8 @@ public class MainActivity extends Activity {
         userInput = findViewById(R.id.user_input);
         passwordInput = findViewById(R.id.password_input);
         textInput = findViewById(R.id.text_input);
+        programWidthInput = findViewById(R.id.program_width_input);
+        programHeightInput = findViewById(R.id.program_height_input);
         fontFamilySpinner = findViewById(R.id.font_family_spinner);
         fontSizeSpinner = findViewById(R.id.font_size_spinner);
         ArrayAdapter<CharSequence> families = ArrayAdapter.createFromResource(this,
@@ -110,11 +113,16 @@ public class MainActivity extends Activity {
             report("Validation failed: text is empty");
             return;
         }
+        final int requestedWidth = optionalDimension(programWidthInput);
+        if (requestedWidth < 0) return;
+        final int requestedHeight = optionalDimension(programHeightInput);
+        if (requestedHeight < 0) return;
         sendButton.setEnabled(false);
         new Thread(new Runnable() {
             @Override public void run() {
             try {
-                publish(sn, ip, username, password, text, fontFamily, selectedFontSize);
+                publish(sn, ip, username, password, text, fontFamily, selectedFontSize,
+                        requestedWidth, requestedHeight);
                 report(getString(R.string.send_success));
             } catch (Exception | LinkageError e) {
                 Log.e(TAG, "Text program failed", e);
@@ -128,8 +136,24 @@ public class MainActivity extends Activity {
         }, "novastar-text-send").start();
     }
 
+    /** Zero means the corresponding dimension should be read from the terminal. */
+    private int optionalDimension(EditText input) {
+        String value = input.getText().toString().trim();
+        if (value.isEmpty()) return 0;
+        try {
+            int dimension = Integer.parseInt(value);
+            if (dimension > 0) return dimension;
+        } catch (NumberFormatException ignored) {
+            // The number is too large, or is not a decimal integer.
+        }
+        input.setError(getString(R.string.error_program_dimension));
+        input.requestFocus();
+        return -1;
+    }
+
     private void publish(String sn, String ip, String username, String password, String text,
-                         String fontFamily, int selectedFontSize) throws Exception {
+                         String fontFamily, int selectedFontSize,
+                         int requestedWidth, int requestedHeight) throws Exception {
         sdkDir = getExternalFilesDir("novastar");
         if (sdkDir == null) sdkDir = new File(getFilesDir(), "novastar");
         if (!sdkDir.exists() && !sdkDir.mkdirs()) throw new Exception("Cannot create SDK directory");
@@ -171,18 +195,22 @@ public class MainActivity extends Activity {
             throw new Exception("nvLoginAsync did not confirm login: " + login.data);
 
         DisplayDimensions dimensions = null;
-        try {
-            report("Reading display resolution");
-            final String displayRequest = TextProgramPayload.displayInfo(sn).toString();
-            Result display = await("nvGetDisplayInfoAsync", STEP_TIMEOUT_MS, new SdkCall() {
-                @Override public void invoke(ViplexCore.CallBack cb) { core.nvGetDisplayInfoAsync(displayRequest, cb); }
-            }, false);
-            dimensions = DisplayDimensions.parse(display.data);
-        } catch (Exception e) {
-            report("Display info unavailable: " + e.getMessage());
+        if (requestedWidth == 0 || requestedHeight == 0) {
+            try {
+                report("Reading display resolution");
+                final String displayRequest = TextProgramPayload.displayInfo(sn).toString();
+                Result display = await("nvGetDisplayInfoAsync", STEP_TIMEOUT_MS, new SdkCall() {
+                    @Override public void invoke(ViplexCore.CallBack cb) { core.nvGetDisplayInfoAsync(displayRequest, cb); }
+                }, false);
+                dimensions = DisplayDimensions.parse(display.data);
+            } catch (Exception e) {
+                report("Display info unavailable: " + e.getMessage());
+            }
         }
-        int screenWidth = dimensions != null ? dimensions.width : discovered == null ? 0 : discovered.width;
-        int screenHeight = dimensions != null ? dimensions.height : discovered == null ? 0 : discovered.height;
+        int screenWidth = requestedWidth > 0 ? requestedWidth
+                : dimensions != null ? dimensions.width : discovered == null ? 0 : discovered.width;
+        int screenHeight = requestedHeight > 0 ? requestedHeight
+                : dimensions != null ? dimensions.height : discovered == null ? 0 : discovered.height;
         if (screenWidth <= 0 || screenHeight <= 0)
             throw new Exception("Cannot determine screen resolution from display info or search result");
         int fontSize = selectedFontSize > 0 ? selectedFontSize : Math.max(8, Math.min(60, screenHeight * 2 / 5));

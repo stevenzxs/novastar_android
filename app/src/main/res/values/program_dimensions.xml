@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hint_program_width">节目宽度 px（留空自动）</string>
+    <string name="hint_program_height">节目高度 px（留空自动）</string>
+    <string name="error_program_dimension">请输入大于 0 的整数</string>
+</resources>

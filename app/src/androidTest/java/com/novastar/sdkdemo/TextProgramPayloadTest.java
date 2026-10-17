@@ -1,6 +1,6 @@
 package com.novastar.sdkdemo;
 
-import androidx.test.ext.junit.AndroidJUnit4;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.json.JSONObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -14,12 +14,10 @@ public class TextProgramPayloadTest {
         JSONObject page = new JSONObject(TextProgramPayload.page(7, text, "SimHei", 24).toString());
         assertEquals(7, page.getInt("programID"));
         JSONObject container = page.getJSONObject("pageInfo").getJSONArray("widgetContainers").getJSONObject(0);
-        assertEquals("100%", container.getJSONObject("layout").getString("height"));
-        assertEquals("100%", container.getJSONObject("layout").getString("width"));
+        assertFalse(container.has("layout"));
         JSONObject widget = container.getJSONObject("contents").getJSONArray("widgets").getJSONObject(0);
         assertEquals("ARCH_TEXT", widget.getString("type"));
-        assertEquals("100%", widget.getJSONObject("layout").getString("height"));
-        assertEquals("100%", widget.getJSONObject("layout").getString("width"));
+        assertFalse(widget.has("layout"));
         assertEquals(text, widget.getJSONObject("metadata").getJSONObject("content")
                 .getJSONArray("paragraphs").getJSONObject(0).getJSONArray("lines").getJSONObject(0)
                 .getJSONArray("segs").getJSONObject(0).getString("content"));

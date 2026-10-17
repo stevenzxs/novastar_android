@@ -40,11 +40,7 @@ final class TextProgramPayload {
         return obj("sn", sn);
     }
 
-    /**
-     * Real-device verification showed the terminal does not render the program when
-     * winInfo is absent. winInfo is a half-size window anchored at the origin:
-     * width/2 and height/2 of the outer program size.
-     */
+    /** The terminal needs an explicit play window to render the program. */
     static JSONObject create(int width, int height) {
         return obj("name", "program1", "width", width, "height", height,
                 "winInfo", obj("height", height, "width", width,
@@ -61,14 +57,11 @@ final class TextProgramPayload {
                         "letterSpacing", 0, "lineSpacing", 0,
                         "lines", array(obj("segs", array(obj("content", text)))), "verticalAlignment", "CENTER")),
                 "textAttributes", array(obj("backgroundColor", "#ff000000", "attributes", attributes)));
-        JSONObject widget = obj("id", 1, "enable", true,
-                "layout", obj("x", "0", "y", "0", "width", "100%", "height", "100%"),
-                "constraints", array(obj("cron", array("0 0 0 ? * 1,2,3,4,5,6,7"),
+        JSONObject widget = obj("constraints", array(obj("cron", array("0 0 0 ? * 1,2,3,4,5,6,7"),
                         "endTime", "4017-12-30T23:59:59Z+8:00", "startTime", "1970-01-01T00:00:00Z+8:00")),
                 "duration", 10000, "metadata", obj("content", content), "name", "文本", "type", "ARCH_TEXT");
-        JSONObject container = obj("contents", obj("widgets", array(widget)), "enable", true, "id", 1,
-                "itemsSource", "", "layout", obj("height", "100%", "width", "100%", "x", "0%", "y", "0%"),
-                "name", "widgetContainers1", "pickCount", 0, "pickPolicy", "ORDER", "zOrder", 0);
+        JSONObject container = obj("contents", obj("widgets", array(widget)), "id", 1,
+                "name", "widgetContainers1");
         return obj("programID", programId, "pageID", 1,
                 "pageInfo", obj("name", "page1", "widgetContainers", array(container)));
     }
