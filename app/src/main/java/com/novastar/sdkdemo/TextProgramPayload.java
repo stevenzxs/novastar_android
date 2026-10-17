@@ -41,8 +41,8 @@ final class TextProgramPayload {
     }
 
     /** The terminal needs an explicit play window to render the program. */
-    static JSONObject create(int width, int height) {
-        return obj("name", "program1", "width", width, "height", height,
+    static JSONObject create(String name, int width, int height) {
+        return obj("name", name, "width", width, "height", height,
                 "winInfo", obj("height", height, "width", width,
                         "left", 0, "top", 0, "zindex", 0, "index", 0));
     }
@@ -70,10 +70,14 @@ final class TextProgramPayload {
         return obj("programID", programId, "outPutPath", sdkDir.getAbsolutePath(), "mediasPath", array());
     }
 
-    static JSONObject transfer(String sn, int programId, File programPath) {
+    static JSONObject transfer(String sn, String programName, File programPath) {
         return obj("sn", sn, "iconPath", "", "iconName", "",
                 "sendProgramFilePaths", obj("programPath", programPath.getAbsolutePath(), "mediasPath", obj()),
-                "programName", "program1", "deviceIdentifier", "SDKDemo",
-                "startPlayAfterTransferred", true, "insertPlay", true);
+                "programName", programName, "deviceIdentifier", "SDKDemo",
+                "startPlayAfterTransferred", true, "insertPlay", false);
+    }
+
+    static JSONObject startPlay(String sn, String identifier) {
+        return obj("sn", sn, "identifier", identifier);
     }
 }

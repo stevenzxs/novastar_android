@@ -221,7 +221,8 @@ public class MainActivity extends Activity {
             report("Selected font size is at least the display height; glyphs may be clipped");
 
         report("Creating program");
-        final String createRequest = TextProgramPayload.create(screenWidth, screenHeight).toString();
+        final String programName = "text_" + System.currentTimeMillis();
+        final String createRequest = TextProgramPayload.create(programName, screenWidth, screenHeight).toString();
         report("nvCreateProgramAsync request=" + createRequest);
         Result created = await("nvCreateProgramAsync", STEP_TIMEOUT_MS, new SdkCall() {
             @Override public void invoke(ViplexCore.CallBack cb) { core.nvCreateProgramAsync(createRequest, cb); }
@@ -245,11 +246,45 @@ public class MainActivity extends Activity {
         File programPath = new File(sdkDir, "program" + programId);
         if (!programPath.exists()) throw new Exception("Generated program missing: " + programPath);
         report("Transferring program");
-        final String transferRequest = TextProgramPayload.transfer(sn, programId, programPath).toString();
+        final String transferRequest = TextProgramPayload.transfer(sn, programName, programPath).toString();
         report("nvStartTransferProgramAsync request=" + transferRequest);
         await("nvStartTransferProgramAsync", TRANSFER_TIMEOUT_MS, new SdkCall() {
             @Override public void invoke(ViplexCore.CallBack cb) { core.nvStartTransferProgramAsync(transferRequest, cb); }
         }, true);
+        report("节目下发完成，正在回读设备播放状态");
+        verifyPlayback(sn, programName);
+    }
+
+    private void verifyPlayback(final String sn, String programName) throws Exception {
+        final String infoRequest = TextProgramPayload.displayInfo(sn).toString();
+        boolean startRequested = false;
+        for (int attempt = 0; attempt < 10; attempt++) {
+            Result info = await("nvGetProgramInfoAsync", STEP_TIMEOUT_MS, new SdkCall() {
+                @Override public void invoke(ViplexCore.CallBack cb) {
+                    core.nvGetProgramInfoAsync(infoRequest, cb);
+                }
+            }, false);
+            ProgramPlayback playback = ProgramPlayback.find(info.data, programName);
+            if (playback != null) {
+                report("节目 " + programName + "：" + playback.statusText()
+                        + "（statusCode=" + playback.statusCode + "）");
+                if (playback.statusCode == 1) return;
+                if (!startRequested && (playback.statusCode == 0 || playback.statusCode == 2)) {
+                    final String startRequest = TextProgramPayload.startPlay(sn, playback.identifier).toString();
+                    report("节目未在播放，调用 nvStartPlayAsync 启动清单");
+                    await("nvStartPlayAsync", STEP_TIMEOUT_MS, new SdkCall() {
+                        @Override public void invoke(ViplexCore.CallBack cb) {
+                            core.nvStartPlayAsync(startRequest, cb);
+                        }
+                    }, false);
+                    startRequested = true;
+                }
+            } else {
+                report("清单中尚未找到刚下发的节目 " + programName);
+            }
+            Thread.sleep(1000);
+        }
+        throw new Exception("节目已下发，但未确认正在播放：" + programName);
     }
 
     private DiscoveredTerminal searchTerminal(final String sn) throws InterruptedException {

@@ -26,7 +26,8 @@ public class TextProgramPayloadTest {
                 .getJSONObject("font");
         assertEquals("SimHei", font.getJSONArray("family").getString(0));
         assertEquals(24, font.getInt("size"));
-        JSONObject program = TextProgramPayload.create(256, 64);
+        JSONObject program = TextProgramPayload.create("text_123", 256, 64);
+        assertEquals("text_123", program.getString("name"));
         assertEquals(256, program.getInt("width"));
         assertEquals(64, program.getInt("height"));
         // Real-device verification: without winInfo the terminal renders nothing.
@@ -36,8 +37,12 @@ public class TextProgramPayloadTest {
         assertEquals(0, winInfo.getInt("left"));
         assertEquals(0, winInfo.getInt("top"));
         assertEquals(7, TextProgramPayload.make(7, new File("/tmp/sdk")).getInt("programID"));
-        assertEquals("/tmp/sdk/program7", TextProgramPayload.transfer("SN", 7,
-                new File("/tmp/sdk/program7")).getJSONObject("sendProgramFilePaths").getString("programPath"));
+        JSONObject transfer = TextProgramPayload.transfer("SN", "text_123", new File("/tmp/sdk/program7"));
+        assertEquals("/tmp/sdk/program7", transfer.getJSONObject("sendProgramFilePaths").getString("programPath"));
+        assertEquals("text_123", transfer.getString("programName"));
+        assertTrue(transfer.getBoolean("startPlayAfterTransferred"));
+        assertFalse(transfer.getBoolean("insertPlay"));
+        assertEquals("abc", TextProgramPayload.startPlay("SN", "abc").getString("identifier"));
     }
 
     @Test public void loginRequestIncludesEnteredPassword() throws Exception {

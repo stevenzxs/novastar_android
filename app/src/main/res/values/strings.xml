@@ -30,6 +30,6 @@
         <item>72</item>
     </string-array>
     <string name="required">请填写此项</string>
-    <string name="send_success">发送完成，设备已收到节目</string>
+    <string name="send_success">设备回读确认：文本节目正在播放</string>
     <string name="send_failed">发送失败：%1$s</string>
 </resources>
