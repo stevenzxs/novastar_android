@@ -306,7 +306,7 @@ public class MainActivity extends Activity {
             File png = renderTextToPng(text, fontFamily, fontSize, screenWidth, screenHeight);
             mediaOldPath = png.getAbsolutePath();
             mediaNewPath = md5Hex(png) + ".png";
-            report("Text PNG: " + mediaOldPath + " -> " + mediaNewPath);
+            report("Text PNG: " + mediaOldPath + " -> " + mediaNewPath + " (" + png.length() + " bytes)");
         }
 
         report("Creating program");
@@ -376,11 +376,13 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** 把文字绘制到透明底 PNG（水平/垂直居中，支持多行），返回 PNG 文件。 */
+    /** 把文字绘制到不透明黑底 PNG（水平/垂直居中，支持多行），返回 PNG 文件。 */
     private File renderTextToPng(String text, String fontFamily, int fontSize,
                                  int width, int height) throws Exception {
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
+        // 不透明黑底：mercury/T20 老播放器可能无法合成 alpha 通道，透明底 PNG 会被丢弃成黑屏
+        canvas.drawColor(0xFF000000);
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         paint.setColor(0xFFFF0000);
         paint.setTextSize(fontSize);
