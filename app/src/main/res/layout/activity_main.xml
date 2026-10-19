@@ -35,13 +35,31 @@
             android:hint="@string/hint_user"
             android:inputType="text"
             android:singleLine="true" />
-        <EditText
-            android:id="@+id/password_input"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="@string/hint_password"
-            android:inputType="textPassword"
-            android:singleLine="true" />
+            android:layout_height="wrap_content">
+
+            <EditText
+                android:id="@+id/password_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/hint_password"
+                android:inputType="textPassword"
+                android:paddingEnd="48dp"
+                android:singleLine="true" />
+
+            <ImageButton
+                android:id="@+id/password_visibility_toggle"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginEnd="4dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/toggle_password_visibility"
+                android:padding="8dp"
+                android:src="@drawable/ic_eye_open"
+                android:tint="#888888" />
+        </FrameLayout>
         <EditText
             android:id="@+id/text_input"
             android:layout_width="match_parent"

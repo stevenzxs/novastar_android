@@ -1,9 +1,11 @@
 package com.novastar.sdkdemo;
 
 import android.app.Activity;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
@@ -11,6 +13,7 @@ import android.view.MotionEvent;
 import android.widget.Button;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -35,6 +38,7 @@ public class MainActivity extends Activity {
     private TextView statusView;
     private ScrollView logScroll;
     private boolean touchingLog;
+    private boolean passwordVisible;
     private Button sendButton;
     private ViplexCore core;
     private ViplexCore.CallBack searchCallback;
@@ -87,6 +91,26 @@ public class MainActivity extends Activity {
         sendButton = findViewById(R.id.send_button);
         sendButton.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { sendTextProgram(); }
+        });
+        final ImageButton passwordToggle = findViewById(R.id.password_visibility_toggle);
+        passwordToggle.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                passwordVisible = !passwordVisible;
+                int selection = passwordInput.getSelectionEnd();
+                if (passwordVisible) {
+                    passwordInput.setInputType(InputType.TYPE_CLASS_TEXT
+                            | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+                    passwordToggle.setImageResource(R.drawable.ic_eye_off);
+                } else {
+                    passwordInput.setInputType(InputType.TYPE_CLASS_TEXT
+                            | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                    passwordToggle.setImageResource(R.drawable.ic_eye_open);
+                }
+                // setInputType resets the typeface; restore it and keep the cursor position.
+                passwordInput.setTypeface(Typeface.DEFAULT);
+                if (selection >= 0)
+                    passwordInput.setSelection(Math.min(selection, passwordInput.getText().length()));
+            }
         });
     }
 
@@ -174,17 +198,11 @@ public class MainActivity extends Activity {
 
         report("Searching terminals for SN " + sn);
         DiscoveredTerminal discovered = searchTerminal(sn);
-        String loginIp = prefer(discovered == null ? "" : discovered.ip, ip);
-        String loginUsername = prefer(discovered == null ? "" : discovered.username, username);
-        String loginPassword = prefer(discovered == null ? "" : discovered.password, password);
-        report("Login IP source=" + source(discovered == null ? "" : discovered.ip)
-                + ", username source=" + source(discovered == null ? "" : discovered.username)
-                + ", password source=" + source(discovered == null ? "" : discovered.password));
         if (discovered != null)
             report("Discovered tcpPort=" + discovered.tcpPort + " (SDK login has no port parameter)");
 
-        report("Logging in");
-        final String loginRequest = TextProgramPayload.login(sn, loginIp, loginUsername, loginPassword).toString();
+        report("Logging in with user-input credentials");
+        final String loginRequest = TextProgramPayload.login(sn, ip, username, password).toString();
         report("nvLoginAsync request=" + loginRequest);
         Result login = await("nvLoginAsync", STEP_TIMEOUT_MS, new SdkCall() {
             @Override public void invoke(ViplexCore.CallBack cb) { core.nvLoginAsync(loginRequest, cb); }
@@ -314,14 +332,6 @@ public class MainActivity extends Activity {
         }
         if (match[0] != null) report("Matched terminal SN=" + match[0].sn + " IP=" + match[0].ip);
         return match[0];
-    }
-
-    private static String prefer(String discovered, String configured) {
-        return discovered != null && !discovered.trim().isEmpty() ? discovered : configured;
-    }
-
-    private static String source(String discovered) {
-        return discovered != null && !discovered.trim().isEmpty() ? "search" : "configured/default";
     }
 
     private Result await(final String operation, long timeoutMs, SdkCall call, final boolean transfer) throws Exception {

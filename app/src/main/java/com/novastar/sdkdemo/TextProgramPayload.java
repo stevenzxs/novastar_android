@@ -27,8 +27,8 @@ final class TextProgramPayload {
     }
 
     static JSONObject login(String sn, String ip, String username, String password) {
-        JSONObject value = obj("sn", sn, "username", username.isEmpty() ? "admin" : username,
-                "rememberPwd", 1, "password", password.isEmpty() ? "123456" : password,
+        JSONObject value = obj("sn", sn, "username", username,
+                "rememberPwd", 1, "password", password,
                 "loginType", 0);
         if (!ip.isEmpty()) {
             try { value.put("ip", ip); } catch (JSONException e) { throw new IllegalArgumentException(e); }
