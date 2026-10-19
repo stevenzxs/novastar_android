@@ -57,13 +57,11 @@ final class TextProgramPayload {
                         "letterSpacing", 0, "lineSpacing", 0,
                         "lines", array(obj("segs", array(obj("content", text)))), "verticalAlignment", "CENTER")),
                 "textAttributes", array(obj("backgroundColor", "#ff000000", "attributes", attributes)));
-        JSONObject fullAreaLayout = obj("x", "0", "y", "0", "width", "100%", "height", "100%");
         JSONObject widget = obj("constraints", array(obj("cron", array("0 0 0 ? * 1,2,3,4,5,6,7"),
                         "endTime", "4017-12-30T23:59:59Z+8:00", "startTime", "1970-01-01T00:00:00Z+8:00")),
-                "duration", 10000, "layout", fullAreaLayout, "metadata", obj("content", content),
-                "name", "文本", "type", "ARCH_TEXT");
+                "duration", 10000, "metadata", obj("content", content), "name", "文本", "type", "ARCH_TEXT");
         JSONObject container = obj("contents", obj("widgets", array(widget)), "id", 1,
-                "layout", fullAreaLayout, "name", "widgetContainers1");
+                "name", "widgetContainers1");
         return obj("programID", programId, "pageID", 1,
                 "pageInfo", obj("name", "page1", "widgetContainers", array(container)));
     }
