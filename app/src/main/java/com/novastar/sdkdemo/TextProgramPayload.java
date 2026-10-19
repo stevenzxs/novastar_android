@@ -90,13 +90,38 @@ final class TextProgramPayload {
                 "pageInfo", obj("name", "节目 01", "widgetContainers", array(container)));
     }
 
-    static JSONObject make(int programId, File sdkDir) {
-        return obj("programID", programId, "outPutPath", sdkDir.getAbsolutePath(), "mediasPath", array());
+    /**
+     * 文字转图方案（与 ViPlex Express 的「单行文本」一致）：文字已在本地渲染成 PNG，
+     * 设备端只按 PICTURE 控件显示图片，绕开 T20/mercury 固件 ARCH_TEXT 渲染缺陷。
+     * dataSource 为设备侧文件名（文件内容的 md5 + .png）。
+     */
+    static JSONObject pagePicture(int programId, String dataSource, String originalDataSource) {
+        JSONObject widget = obj("constraints", array(obj("cron", array("0 0 0 ? * 1,2,3,4,5,6,7"),
+                        "endTime", "4017-12-30T23:59:59Z+8:00", "startTime", "1970-01-01T00:00:00Z+8:00")),
+                "duration", 10000, "dataSource", dataSource, "displayRatio", "FULL",
+                "type", "PICTURE", "name", dataSource, "originalDataSource", originalDataSource);
+        JSONObject container = obj("contents", obj("widgets", array(widget)), "id", 1,
+                "name", "widgetContainers1");
+        return obj("programID", programId, "pageID", 1,
+                "pageInfo", obj("name", "page1", "widgetContainers", array(container)));
     }
 
-    static JSONObject transfer(String sn, String programName, File programPath) {
+    static JSONObject make(int programId, File sdkDir, String mediaOldPath, String mediaNewPath) {
+        JSONArray medias = new JSONArray();
+        if (mediaOldPath != null)
+            medias.put(obj("oldPath", mediaOldPath, "newPath", mediaNewPath));
+        return obj("programID", programId, "outPutPath", sdkDir.getAbsolutePath(), "mediasPath", medias);
+    }
+
+    static JSONObject transfer(String sn, String programName, File programPath,
+                               String mediaOldPath, String mediaNewPath) {
+        JSONObject medias = new JSONObject();
+        if (mediaOldPath != null) {
+            try { medias.put(mediaOldPath, mediaNewPath); }
+            catch (JSONException e) { throw new IllegalArgumentException(e); }
+        }
         return obj("sn", sn, "iconPath", "", "iconName", "",
-                "sendProgramFilePaths", obj("programPath", programPath.getAbsolutePath(), "mediasPath", obj()),
+                "sendProgramFilePaths", obj("programPath", programPath.getAbsolutePath(), "mediasPath", medias),
                 "programName", programName, "deviceIdentifier", "SDKDemo",
                 "startPlayAfterTransferred", true, "insertPlay", false);
     }

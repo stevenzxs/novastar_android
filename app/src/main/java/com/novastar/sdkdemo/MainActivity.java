@@ -1,6 +1,9 @@
 package com.novastar.sdkdemo;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
@@ -20,6 +23,9 @@ import android.widget.TextView;
 import com.sun.jna.Native;
 import org.json.JSONObject;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -28,6 +34,9 @@ import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends Activity {
     private static final String TAG = "NovaStarTextDemo";
+    private static final int MODE_TEXT = 0;
+    private static final int MODE_DOC = 1;
+    private static final int MODE_PICTURE = 2;
     private static final long STEP_TIMEOUT_MS = 30000;
     private static final long SEARCH_TIMEOUT_MS = 10000;
     private static final long TRANSFER_TIMEOUT_MS = 600000;
@@ -41,6 +50,7 @@ public class MainActivity extends Activity {
     private boolean passwordVisible;
     private Button sendButton;
     private Button sendDocButton;
+    private Button sendPictureButton;
     private ViplexCore core;
     private ViplexCore.CallBack searchCallback;
     private File sdkDir;
@@ -91,11 +101,15 @@ public class MainActivity extends Activity {
         statusView.setOnTouchListener(logTouch);
         sendButton = findViewById(R.id.send_button);
         sendButton.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { sendTextProgram(false); }
+            @Override public void onClick(View v) { sendTextProgram(MODE_TEXT); }
         });
         sendDocButton = findViewById(R.id.send_doc_button);
         sendDocButton.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { sendTextProgram(true); }
+            @Override public void onClick(View v) { sendTextProgram(MODE_DOC); }
+        });
+        sendPictureButton = findViewById(R.id.send_picture_button);
+        sendPictureButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { sendTextProgram(MODE_PICTURE); }
         });
         final ImageButton passwordToggle = findViewById(R.id.password_visibility_toggle);
         passwordToggle.setOnClickListener(new View.OnClickListener() {
@@ -119,7 +133,7 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void sendTextProgram(final boolean docExample) {
+    private void sendTextProgram(final int mode) {
         final String sn = snInput.getText().toString().trim();
         final String ip = ipInput.getText().toString().trim();
         final String username = userInput.getText().toString().trim();
@@ -130,7 +144,8 @@ public class MainActivity extends Activity {
         final int selectedFontSize = fontSizeSpinner.getSelectedItemPosition() == 0
                 ? 0 : Integer.parseInt(fontSizeSpinner.getSelectedItem().toString());
         statusView.setText("");
-        report((docExample ? "Doc-example send clicked" : "Send button clicked")
+        report((mode == MODE_DOC ? "Doc-example send clicked"
+                : mode == MODE_PICTURE ? "Picture send clicked" : "Send button clicked")
                 + ": font=" + fontFamily + ", selectedFontSize="
                 + (selectedFontSize == 0 ? "auto" : selectedFontSize));
         if (TextUtils.isEmpty(sn)) {
@@ -149,11 +164,12 @@ public class MainActivity extends Activity {
         if (requestedHeight < 0) return;
         sendButton.setEnabled(false);
         sendDocButton.setEnabled(false);
+        sendPictureButton.setEnabled(false);
         new Thread(new Runnable() {
             @Override public void run() {
             try {
                 publish(sn, ip, username, password, text, fontFamily, selectedFontSize,
-                        requestedWidth, requestedHeight, docExample);
+                        requestedWidth, requestedHeight, mode);
                 report(getString(R.string.send_success));
             } catch (Exception | LinkageError e) {
                 Log.e(TAG, "Text program failed", e);
@@ -163,6 +179,7 @@ public class MainActivity extends Activity {
                     @Override public void run() {
                         sendButton.setEnabled(true);
                         sendDocButton.setEnabled(true);
+                        sendPictureButton.setEnabled(true);
                     }
                 });
             }
@@ -187,7 +204,7 @@ public class MainActivity extends Activity {
 
     private void publish(String sn, String ip, String username, String password, String text,
                          String fontFamily, int selectedFontSize,
-                         int requestedWidth, int requestedHeight, boolean docExample) throws Exception {
+                         int requestedWidth, int requestedHeight, int mode) throws Exception {
         sdkDir = getExternalFilesDir("novastar");
         if (sdkDir == null) sdkDir = new File(getFilesDir(), "novastar");
         if (!sdkDir.exists() && !sdkDir.mkdirs()) throw new Exception("Cannot create SDK directory");
@@ -248,6 +265,17 @@ public class MainActivity extends Activity {
         if (selectedFontSize > 0 && selectedFontSize >= screenHeight)
             report("Selected font size is at least the display height; glyphs may be clipped");
 
+        // 文字转图模式：本地把文字渲染成透明底 PNG，设备端按 PICTURE 显示
+        String mediaOldPath = null;
+        String mediaNewPath = null;
+        if (mode == MODE_PICTURE) {
+            report("Rendering text to PNG (" + screenWidth + "x" + screenHeight + ")");
+            File png = renderTextToPng(text, fontFamily, fontSize, screenWidth, screenHeight);
+            mediaOldPath = png.getAbsolutePath();
+            mediaNewPath = md5Hex(png) + ".png";
+            report("Text PNG: " + mediaOldPath + " -> " + mediaNewPath);
+        }
+
         report("Creating program");
         final String programName = "text_" + System.currentTimeMillis();
         final String createRequest = TextProgramPayload.create(programName, screenWidth, screenHeight).toString();
@@ -259,16 +287,19 @@ public class MainActivity extends Activity {
         if (programId <= 0) throw new Exception("Invalid programID: " + programId);
 
         report("Setting text page (program " + programId + ")"
-                + (docExample ? " per doc example 4.30.1.4" : ""));
-        final String pageRequest = (docExample
+                + (mode == MODE_DOC ? " per doc example 4.30.1.4"
+                : mode == MODE_PICTURE ? " as text PNG" : ""));
+        final String pageRequest = (mode == MODE_DOC
                 ? TextProgramPayload.pageDocExample(programId)
-                : TextProgramPayload.page(programId, text, fontFamily, fontSize)).toString();
+                : mode == MODE_PICTURE
+                    ? TextProgramPayload.pagePicture(programId, mediaNewPath, mediaOldPath)
+                    : TextProgramPayload.page(programId, text, fontFamily, fontSize)).toString();
         report("nvSetPageProgramAsync request=" + pageRequest);
         await("nvSetPageProgramAsync", STEP_TIMEOUT_MS, new SdkCall() {
             @Override public void invoke(ViplexCore.CallBack cb) { core.nvSetPageProgramAsync(pageRequest, cb); }
         }, false);
         report("Generating program");
-        final String makeRequest = TextProgramPayload.make(programId, sdkDir).toString();
+        final String makeRequest = TextProgramPayload.make(programId, sdkDir, mediaOldPath, mediaNewPath).toString();
         report("nvMakeProgramAsync request=" + makeRequest);
         await("nvMakeProgramAsync", STEP_TIMEOUT_MS, new SdkCall() {
             @Override public void invoke(ViplexCore.CallBack cb) { core.nvMakeProgramAsync(makeRequest, cb); }
@@ -277,7 +308,7 @@ public class MainActivity extends Activity {
         File programPath = new File(sdkDir, "program" + programId);
         if (!programPath.exists()) throw new Exception("Generated program missing: " + programPath);
         report("Transferring program");
-        final String transferRequest = TextProgramPayload.transfer(sn, programName, programPath).toString();
+        final String transferRequest = TextProgramPayload.transfer(sn, programName, programPath, mediaOldPath, mediaNewPath).toString();
         report("nvStartTransferProgramAsync request=" + transferRequest);
         await("nvStartTransferProgramAsync", TRANSFER_TIMEOUT_MS, new SdkCall() {
             @Override public void invoke(ViplexCore.CallBack cb) { core.nvStartTransferProgramAsync(transferRequest, cb); }
@@ -297,6 +328,53 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             report("本地节目查询失败（不影响下发）: " + e.getMessage());
         }
+    }
+
+    /** 把文字绘制到透明底 PNG（水平/垂直居中，支持多行），返回 PNG 文件。 */
+    private File renderTextToPng(String text, String fontFamily, int fontSize,
+                                 int width, int height) throws Exception {
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setColor(0xFFFF0000);
+        paint.setTextSize(fontSize);
+        Typeface typeface = Typeface.create(fontFamily, Typeface.NORMAL);
+        paint.setTypeface(typeface != null ? typeface : Typeface.DEFAULT);
+        paint.setTextAlign(Paint.Align.CENTER);
+        String[] lines = text.split("\n", -1);
+        float lineHeight = fontSize * 1.2f;
+        float blockHeight = lineHeight * lines.length;
+        float centerOffset = -(paint.descent() + paint.ascent()) / 2f;
+        for (int i = 0; i < lines.length; i++) {
+            float lineCenterY = height / 2f - blockHeight / 2f + lineHeight * (i + 0.5f);
+            canvas.drawText(lines[i], width / 2f, lineCenterY + centerOffset, paint);
+        }
+        File file = new File(sdkDir, "text_" + System.currentTimeMillis() + ".png");
+        FileOutputStream out = new FileOutputStream(file);
+        try {
+            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out))
+                throw new Exception("PNG compression failed");
+        } finally {
+            out.close();
+            bitmap.recycle();
+        }
+        return file;
+    }
+
+    /** 文件内容 MD5 小写十六进制，作为设备侧文件名（与官方发布包规则一致）。 */
+    private static String md5Hex(File file) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("MD5");
+        FileInputStream in = new FileInputStream(file);
+        try {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) > 0) digest.update(buffer, 0, read);
+        } finally {
+            in.close();
+        }
+        StringBuilder hex = new StringBuilder();
+        for (byte b : digest.digest()) hex.append(String.format("%02x", b));
+        return hex.toString();
     }
 
     private void verifyPlayback(final String sn, String programName) throws Exception {
