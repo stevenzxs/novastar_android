@@ -113,14 +113,31 @@
                 android:layout_height="48dp"
                 android:layout_weight="1" />
         </LinearLayout>
-        <Button
-            android:id="@+id/send_button"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/send_button_background"
-            android:minHeight="48dp"
-            android:textColor="@android:color/white"
-            android:text="@string/send" />
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/send_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/send_button_background"
+                android:minHeight="48dp"
+                android:textColor="@android:color/white"
+                android:text="@string/send" />
+
+            <Button
+                android:id="@+id/send_doc_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/send_button_background"
+                android:minHeight="48dp"
+                android:textColor="@android:color/white"
+                android:text="@string/send_doc_example" />
+        </LinearLayout>
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

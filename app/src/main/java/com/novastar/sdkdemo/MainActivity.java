@@ -40,6 +40,7 @@ public class MainActivity extends Activity {
     private boolean touchingLog;
     private boolean passwordVisible;
     private Button sendButton;
+    private Button sendDocButton;
     private ViplexCore core;
     private ViplexCore.CallBack searchCallback;
     private File sdkDir;
@@ -90,7 +91,11 @@ public class MainActivity extends Activity {
         statusView.setOnTouchListener(logTouch);
         sendButton = findViewById(R.id.send_button);
         sendButton.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { sendTextProgram(); }
+            @Override public void onClick(View v) { sendTextProgram(false); }
+        });
+        sendDocButton = findViewById(R.id.send_doc_button);
+        sendDocButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { sendTextProgram(true); }
         });
         final ImageButton passwordToggle = findViewById(R.id.password_visibility_toggle);
         passwordToggle.setOnClickListener(new View.OnClickListener() {
@@ -114,7 +119,7 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void sendTextProgram() {
+    private void sendTextProgram(final boolean docExample) {
         final String sn = snInput.getText().toString().trim();
         final String ip = ipInput.getText().toString().trim();
         final String username = userInput.getText().toString().trim();
@@ -125,7 +130,8 @@ public class MainActivity extends Activity {
         final int selectedFontSize = fontSizeSpinner.getSelectedItemPosition() == 0
                 ? 0 : Integer.parseInt(fontSizeSpinner.getSelectedItem().toString());
         statusView.setText("");
-        report("Send button clicked: font=" + fontFamily + ", selectedFontSize="
+        report((docExample ? "Doc-example send clicked" : "Send button clicked")
+                + ": font=" + fontFamily + ", selectedFontSize="
                 + (selectedFontSize == 0 ? "auto" : selectedFontSize));
         if (TextUtils.isEmpty(sn)) {
             snInput.setError(getString(R.string.required));
@@ -142,18 +148,22 @@ public class MainActivity extends Activity {
         final int requestedHeight = optionalDimension(programHeightInput);
         if (requestedHeight < 0) return;
         sendButton.setEnabled(false);
+        sendDocButton.setEnabled(false);
         new Thread(new Runnable() {
             @Override public void run() {
             try {
                 publish(sn, ip, username, password, text, fontFamily, selectedFontSize,
-                        requestedWidth, requestedHeight);
+                        requestedWidth, requestedHeight, docExample);
                 report(getString(R.string.send_success));
             } catch (Exception | LinkageError e) {
                 Log.e(TAG, "Text program failed", e);
                 report(getString(R.string.send_failed, e.getMessage()) + "\n" + Log.getStackTraceString(e));
             } finally {
                 mainHandler.post(new Runnable() {
-                    @Override public void run() { sendButton.setEnabled(true); }
+                    @Override public void run() {
+                        sendButton.setEnabled(true);
+                        sendDocButton.setEnabled(true);
+                    }
                 });
             }
             }
@@ -177,7 +187,7 @@ public class MainActivity extends Activity {
 
     private void publish(String sn, String ip, String username, String password, String text,
                          String fontFamily, int selectedFontSize,
-                         int requestedWidth, int requestedHeight) throws Exception {
+                         int requestedWidth, int requestedHeight, boolean docExample) throws Exception {
         sdkDir = getExternalFilesDir("novastar");
         if (sdkDir == null) sdkDir = new File(getFilesDir(), "novastar");
         if (!sdkDir.exists() && !sdkDir.mkdirs()) throw new Exception("Cannot create SDK directory");
@@ -248,8 +258,11 @@ public class MainActivity extends Activity {
         int programId = new JSONObject(created.data).getJSONObject("onSuccess").getInt("programID");
         if (programId <= 0) throw new Exception("Invalid programID: " + programId);
 
-        report("Setting text page (program " + programId + ")");
-        final String pageRequest = TextProgramPayload.page(programId, text, fontFamily, fontSize).toString();
+        report("Setting text page (program " + programId + ")"
+                + (docExample ? " per doc example 4.30.1.4" : ""));
+        final String pageRequest = (docExample
+                ? TextProgramPayload.pageDocExample(programId)
+                : TextProgramPayload.page(programId, text, fontFamily, fontSize)).toString();
         report("nvSetPageProgramAsync request=" + pageRequest);
         await("nvSetPageProgramAsync", STEP_TIMEOUT_MS, new SdkCall() {
             @Override public void invoke(ViplexCore.CallBack cb) { core.nvSetPageProgramAsync(pageRequest, cb); }
@@ -269,8 +282,21 @@ public class MainActivity extends Activity {
         await("nvStartTransferProgramAsync", TRANSFER_TIMEOUT_MS, new SdkCall() {
             @Override public void invoke(ViplexCore.CallBack cb) { core.nvStartTransferProgramAsync(transferRequest, cb); }
         }, true);
+        queryLocalPrograms();
         report("节目下发完成，正在回读设备播放状态");
         verifyPlayback(sn, programName);
+    }
+
+    /** 发送成功后查询 SDK 本地节目库，仅打印返回值，失败不影响下发流程。 */
+    private void queryLocalPrograms() {
+        try {
+            Result local = await("nvGetProgramAsync", STEP_TIMEOUT_MS, new SdkCall() {
+                @Override public void invoke(ViplexCore.CallBack cb) { core.nvGetProgramAsync("", cb); }
+            }, false);
+            report("本地节目查询返回值=" + local.data);
+        } catch (Exception e) {
+            report("本地节目查询失败（不影响下发）: " + e.getMessage());
+        }
     }
 
     private void verifyPlayback(final String sn, String programName) throws Exception {
