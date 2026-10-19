@@ -40,6 +40,8 @@ public class MainActivity extends Activity {
     private static final int MODE_DOC = 1;
     private static final int MODE_PICTURE = 2;
     private static final int MODE_TEST = 3;
+    private static final int MODE_WEATHER = 4;
+    private static final int MODE_COLORFUL = 5;
     private static final String PREFS_FORM = "form_state";
     private static final String KEY_SN = "sn";
     private static final String KEY_IP = "ip";
@@ -61,6 +63,8 @@ public class MainActivity extends Activity {
     private Button sendDocButton;
     private Button sendPictureButton;
     private Button sendTestButton;
+    private Button sendWeatherButton;
+    private Button sendColorfulButton;
     private ViplexCore core;
     private ViplexCore.CallBack searchCallback;
     private File sdkDir;
@@ -124,6 +128,14 @@ public class MainActivity extends Activity {
         sendTestButton = findViewById(R.id.send_test_button);
         sendTestButton.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { sendTextProgram(MODE_TEST); }
+        });
+        sendWeatherButton = findViewById(R.id.send_weather_button);
+        sendWeatherButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { sendTextProgram(MODE_WEATHER); }
+        });
+        sendColorfulButton = findViewById(R.id.send_colorful_button);
+        sendColorfulButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { sendTextProgram(MODE_COLORFUL); }
         });
         Button logUp = findViewById(R.id.log_scroll_up);
         logUp.setOnClickListener(new View.OnClickListener() {
@@ -194,7 +206,9 @@ public class MainActivity extends Activity {
         statusView.setText("");
         report((mode == MODE_DOC ? "Doc-example send clicked"
                 : mode == MODE_PICTURE ? "Picture send clicked"
-                : mode == MODE_TEST ? "Test-pattern send clicked" : "Send button clicked")
+                : mode == MODE_TEST ? "Test-pattern send clicked"
+                : mode == MODE_WEATHER ? "Weather send clicked"
+                : mode == MODE_COLORFUL ? "Colorful-text send clicked" : "Send button clicked")
                 + ": font=" + fontFamily + ", selectedFontSize="
                 + (selectedFontSize == 0 ? "auto" : selectedFontSize));
         if (TextUtils.isEmpty(sn)) {
@@ -215,6 +229,8 @@ public class MainActivity extends Activity {
         sendDocButton.setEnabled(false);
         sendPictureButton.setEnabled(false);
         sendTestButton.setEnabled(false);
+        sendWeatherButton.setEnabled(false);
+        sendColorfulButton.setEnabled(false);
         new Thread(new Runnable() {
             @Override public void run() {
             try {
@@ -231,6 +247,8 @@ public class MainActivity extends Activity {
                         sendDocButton.setEnabled(true);
                         sendPictureButton.setEnabled(true);
                         sendTestButton.setEnabled(true);
+                        sendWeatherButton.setEnabled(true);
+                        sendColorfulButton.setEnabled(true);
                     }
                 });
             }
@@ -334,14 +352,20 @@ public class MainActivity extends Activity {
 
         report("Setting text page (program " + programId + ")"
                 + (mode == MODE_DOC ? " per doc example 4.30.1.4"
-                : mode == MODE_PICTURE || mode == MODE_TEST ? " as text PNG" : ""));
+                : mode == MODE_PICTURE || mode == MODE_TEST ? " as text PNG"
+                : mode == MODE_WEATHER ? " per doc example 4.30.2.6"
+                : mode == MODE_COLORFUL ? " per doc example 4.30.2.9" : ""));
         final String pageRequest = (mode == MODE_DOC
                 ? TextProgramPayload.pageDocExample(programId)
                 : mode == MODE_TEST
-                    ? TextProgramPayload.pagePictureDocExample(programId, mediaNewPath, mediaOldPath, mediaOrigName)
+                    ? TextProgramPayload.pagePictureDocExample(programId, mediaNewPath, mediaOrigName)
                     : mode == MODE_PICTURE
-                        ? TextProgramPayload.pagePicture(programId, mediaNewPath, mediaOldPath)
-                        : TextProgramPayload.page(programId, text, fontFamily, fontSize)).toString();
+                        ? TextProgramPayload.pagePicture(programId, mediaNewPath, mediaOrigName)
+                        : mode == MODE_WEATHER
+                            ? TextProgramPayload.pageWeatherComplex(programId)
+                            : mode == MODE_COLORFUL
+                                ? TextProgramPayload.pageColorfulComplex(programId)
+                                : TextProgramPayload.page(programId, text, fontFamily, fontSize)).toString();
         report("nvSetPageProgramAsync request=" + pageRequest);
         await("nvSetPageProgramAsync", STEP_TIMEOUT_MS, new SdkCall() {
             @Override public void invoke(ViplexCore.CallBack cb) { core.nvSetPageProgramAsync(pageRequest, cb); }

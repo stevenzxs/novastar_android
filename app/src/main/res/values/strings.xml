@@ -11,6 +11,8 @@
     <string name="send_doc_example">按文档示例发送</string>
     <string name="send_picture">文字转图发送</string>
     <string name="send_test">测试图</string>
+    <string name="send_weather">天气预报</string>
+    <string name="send_colorful">炫彩字</string>
     <string name="log_title">发送日志</string>
     <string name="font_family_label">字体</string>
     <string name="font_size_label">字号</string>
