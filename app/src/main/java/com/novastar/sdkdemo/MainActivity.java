@@ -1,6 +1,8 @@
 package com.novastar.sdkdemo;
 
 import android.app.Activity;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -37,6 +39,12 @@ public class MainActivity extends Activity {
     private static final int MODE_TEXT = 0;
     private static final int MODE_DOC = 1;
     private static final int MODE_PICTURE = 2;
+    private static final String PREFS_FORM = "form_state";
+    private static final String KEY_SN = "sn";
+    private static final String KEY_IP = "ip";
+    private static final String KEY_USER = "username";
+    private static final String KEY_PASSWORD = "password";
+    private static final String KEY_TEXT = "text";
     private static final long STEP_TIMEOUT_MS = 30000;
     private static final long SEARCH_TIMEOUT_MS = 10000;
     private static final long TRANSFER_TIMEOUT_MS = 600000;
@@ -111,6 +119,18 @@ public class MainActivity extends Activity {
         sendPictureButton.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { sendTextProgram(MODE_PICTURE); }
         });
+        Button logUp = findViewById(R.id.log_scroll_up);
+        logUp.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                logScroll.smoothScrollBy(0, -logScroll.getHeight());
+            }
+        });
+        Button logDown = findViewById(R.id.log_scroll_down);
+        logDown.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                logScroll.smoothScrollBy(0, logScroll.getHeight());
+            }
+        });
         final ImageButton passwordToggle = findViewById(R.id.password_visibility_toggle);
         passwordToggle.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -131,6 +151,27 @@ public class MainActivity extends Activity {
                     passwordInput.setSelection(Math.min(selection, passwordInput.getText().length()));
             }
         });
+        restoreForm();
+    }
+
+    /** 重启应用后回填上次发送时保存的表单内容（密码以明文存于本应用私有目录）。 */
+    private void restoreForm() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_FORM, Context.MODE_PRIVATE);
+        snInput.setText(prefs.getString(KEY_SN, ""));
+        ipInput.setText(prefs.getString(KEY_IP, ""));
+        userInput.setText(prefs.getString(KEY_USER, ""));
+        passwordInput.setText(prefs.getString(KEY_PASSWORD, ""));
+        textInput.setText(prefs.getString(KEY_TEXT, ""));
+    }
+
+    private void saveForm(String sn, String ip, String username, String password, String text) {
+        getSharedPreferences(PREFS_FORM, Context.MODE_PRIVATE).edit()
+                .putString(KEY_SN, sn)
+                .putString(KEY_IP, ip)
+                .putString(KEY_USER, username)
+                .putString(KEY_PASSWORD, password)
+                .putString(KEY_TEXT, text)
+                .apply();
     }
 
     private void sendTextProgram(final int mode) {
@@ -143,6 +184,7 @@ public class MainActivity extends Activity {
                 ? "Helvetica" : fontFamilySpinner.getSelectedItem().toString();
         final int selectedFontSize = fontSizeSpinner.getSelectedItemPosition() == 0
                 ? 0 : Integer.parseInt(fontSizeSpinner.getSelectedItem().toString());
+        saveForm(sn, ip, username, password, text);
         statusView.setText("");
         report((mode == MODE_DOC ? "Doc-example send clicked"
                 : mode == MODE_PICTURE ? "Picture send clicked" : "Send button clicked")
@@ -228,16 +270,7 @@ public class MainActivity extends Activity {
         if (discovered != null)
             report("Discovered tcpPort=" + discovered.tcpPort + " (SDK login has no port parameter)");
 
-        report("Logging in with user-input credentials");
-        final String loginRequest = TextProgramPayload.login(sn, ip, username, password).toString();
-        report("nvLoginAsync request=" + loginRequest);
-        Result login = await("nvLoginAsync", STEP_TIMEOUT_MS, new SdkCall() {
-            @Override public void invoke(ViplexCore.CallBack cb) { core.nvLoginAsync(loginRequest, cb); }
-        }, false);
-        JSONObject loginData = new JSONObject(login.data);
-        if (!loginData.optBoolean("logined") ||
-                !(loginData.optBoolean("validation") || loginData.optBoolean("validition")))
-            throw new Exception("nvLoginAsync did not confirm login: " + login.data);
+        login(sn, ip, username, password);
 
         DisplayDimensions dimensions = null;
         if (requestedWidth == 0 || requestedHeight == 0) {
@@ -315,7 +348,20 @@ public class MainActivity extends Activity {
         }, true);
         queryLocalPrograms();
         report("节目下发完成，正在回读设备播放状态");
-        verifyPlayback(sn, programName);
+        verifyPlayback(sn, ip, username, password, programName);
+    }
+
+    private void login(String sn, String ip, String username, String password) throws Exception {
+        report("Logging in with user-input credentials");
+        final String loginRequest = TextProgramPayload.login(sn, ip, username, password).toString();
+        report("nvLoginAsync request=" + loginRequest);
+        Result login = await("nvLoginAsync", STEP_TIMEOUT_MS, new SdkCall() {
+            @Override public void invoke(ViplexCore.CallBack cb) { core.nvLoginAsync(loginRequest, cb); }
+        }, false);
+        JSONObject loginData = new JSONObject(login.data);
+        if (!loginData.optBoolean("logined") ||
+                !(loginData.optBoolean("validation") || loginData.optBoolean("validition")))
+            throw new Exception("nvLoginAsync did not confirm login: " + login.data);
     }
 
     /** 发送成功后查询 SDK 本地节目库，仅打印返回值，失败不影响下发流程。 */
@@ -377,15 +423,35 @@ public class MainActivity extends Activity {
         return hex.toString();
     }
 
-    private void verifyPlayback(final String sn, String programName) throws Exception {
+    private void verifyPlayback(String sn, String ip, String username, String password,
+                                String programName) throws Exception {
         final String infoRequest = TextProgramPayload.displayInfo(sn).toString();
         boolean startRequested = false;
+        int reloginAttempts = 0;
         for (int attempt = 0; attempt < 10; attempt++) {
-            Result info = await("nvGetProgramInfoAsync", STEP_TIMEOUT_MS, new SdkCall() {
-                @Override public void invoke(ViplexCore.CallBack cb) {
-                    core.nvGetProgramInfoAsync(infoRequest, cb);
+            Result info;
+            try {
+                info = await("nvGetProgramInfoAsync", STEP_TIMEOUT_MS, new SdkCall() {
+                    @Override public void invoke(ViplexCore.CallBack cb) {
+                        core.nvGetProgramInfoAsync(infoRequest, cb);
+                    }
+                }, false);
+            } catch (Exception e) {
+                // 节目传输完成后设备会重建播放服务，TCP 会话失效（65350 not logined），
+                // 重新登录后继续回读，而不是让整个发送失败。
+                if (reloginAttempts < 3 && e.getMessage() != null
+                        && e.getMessage().contains("not logined")) {
+                    reloginAttempts++;
+                    report("会话已失效（下发后设备重建连接），重新登录（第 " + reloginAttempts + " 次）");
+                    try {
+                        login(sn, ip, username, password);
+                    } catch (Exception loginError) {
+                        report("重新登录失败: " + loginError.getMessage());
+                    }
+                    continue;
                 }
-            }, false);
+                throw e;
+            }
             ProgramPlayback playback = ProgramPlayback.find(info.data, programName);
             if (playback != null) {
                 report("节目 " + programName + "：" + playback.statusText()

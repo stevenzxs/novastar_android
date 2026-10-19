@@ -31,13 +31,14 @@ public class TextProgramPayloadTest {
         assertEquals(256, program.getInt("width"));
         assertEquals(64, program.getInt("height"));
         // Real-device verification: without winInfo the terminal renders nothing.
+        // winInfo covers the full program area (full screen on the terminal).
         JSONObject winInfo = program.getJSONObject("winInfo");
-        assertEquals(128, winInfo.getInt("width"));
-        assertEquals(32, winInfo.getInt("height"));
+        assertEquals(256, winInfo.getInt("width"));
+        assertEquals(64, winInfo.getInt("height"));
         assertEquals(0, winInfo.getInt("left"));
         assertEquals(0, winInfo.getInt("top"));
-        assertEquals(7, TextProgramPayload.make(7, new File("/tmp/sdk")).getInt("programID"));
-        JSONObject transfer = TextProgramPayload.transfer("SN", "text_123", new File("/tmp/sdk/program7"));
+        assertEquals(7, TextProgramPayload.make(7, new File("/tmp/sdk"), null, null).getInt("programID"));
+        JSONObject transfer = TextProgramPayload.transfer("SN", "text_123", new File("/tmp/sdk/program7"), null, null);
         assertEquals("/tmp/sdk/program7", transfer.getJSONObject("sendProgramFilePaths").getString("programPath"));
         assertEquals("text_123", transfer.getString("programName"));
         assertTrue(transfer.getBoolean("startPlayAfterTransferred"));
