@@ -10,6 +10,7 @@
     <string name="send">发送文本节目</string>
     <string name="send_doc_example">按文档示例发送</string>
     <string name="send_picture">文字转图发送</string>
+    <string name="send_test">测试图</string>
     <string name="log_title">发送日志</string>
     <string name="font_family_label">字体</string>
     <string name="font_size_label">字号</string>

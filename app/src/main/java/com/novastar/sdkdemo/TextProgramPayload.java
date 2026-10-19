@@ -106,6 +106,19 @@ final class TextProgramPayload {
                 "pageInfo", obj("name", "page1", "widgetContainers", array(container)));
     }
 
+    /** TaurusSDK 4.30.1.1 图片示例的原样复刻（name 用原始文件名、无 displayRatio、duration 5000）。 */
+    static JSONObject pagePictureDocExample(int programId, String dataSource,
+                                            String originalDataSource, String originalName) {
+        JSONObject widget = obj("constraints", array(obj("cron", array("0 0 0 ? * 1,2,3,4,5,6,7"),
+                        "endTime", "4017-12-30T23:59:59Z+8:00", "startTime", "1970-01-01T00:00:00Z+8:00")),
+                "duration", 5000, "dataSource", dataSource, "type", "PICTURE",
+                "name", originalName, "originalDataSource", originalDataSource);
+        JSONObject container = obj("contents", obj("widgets", array(widget)), "id", 1,
+                "name", "widgetContainers1");
+        return obj("programID", programId, "pageID", 1,
+                "pageInfo", obj("name", "节目 01", "widgetContainers", array(container)));
+    }
+
     static JSONObject make(int programId, File sdkDir, String mediaOldPath, String mediaNewPath) {
         JSONArray medias = new JSONArray();
         if (mediaOldPath != null)

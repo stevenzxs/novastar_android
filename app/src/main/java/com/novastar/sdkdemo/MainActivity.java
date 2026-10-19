@@ -39,6 +39,7 @@ public class MainActivity extends Activity {
     private static final int MODE_TEXT = 0;
     private static final int MODE_DOC = 1;
     private static final int MODE_PICTURE = 2;
+    private static final int MODE_TEST = 3;
     private static final String PREFS_FORM = "form_state";
     private static final String KEY_SN = "sn";
     private static final String KEY_IP = "ip";
@@ -59,6 +60,7 @@ public class MainActivity extends Activity {
     private Button sendButton;
     private Button sendDocButton;
     private Button sendPictureButton;
+    private Button sendTestButton;
     private ViplexCore core;
     private ViplexCore.CallBack searchCallback;
     private File sdkDir;
@@ -118,6 +120,10 @@ public class MainActivity extends Activity {
         sendPictureButton = findViewById(R.id.send_picture_button);
         sendPictureButton.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) { sendTextProgram(MODE_PICTURE); }
+        });
+        sendTestButton = findViewById(R.id.send_test_button);
+        sendTestButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { sendTextProgram(MODE_TEST); }
         });
         Button logUp = findViewById(R.id.log_scroll_up);
         logUp.setOnClickListener(new View.OnClickListener() {
@@ -187,7 +193,8 @@ public class MainActivity extends Activity {
         saveForm(sn, ip, username, password, text);
         statusView.setText("");
         report((mode == MODE_DOC ? "Doc-example send clicked"
-                : mode == MODE_PICTURE ? "Picture send clicked" : "Send button clicked")
+                : mode == MODE_PICTURE ? "Picture send clicked"
+                : mode == MODE_TEST ? "Test-pattern send clicked" : "Send button clicked")
                 + ": font=" + fontFamily + ", selectedFontSize="
                 + (selectedFontSize == 0 ? "auto" : selectedFontSize));
         if (TextUtils.isEmpty(sn)) {
@@ -207,6 +214,7 @@ public class MainActivity extends Activity {
         sendButton.setEnabled(false);
         sendDocButton.setEnabled(false);
         sendPictureButton.setEnabled(false);
+        sendTestButton.setEnabled(false);
         new Thread(new Runnable() {
             @Override public void run() {
             try {
@@ -222,6 +230,7 @@ public class MainActivity extends Activity {
                         sendButton.setEnabled(true);
                         sendDocButton.setEnabled(true);
                         sendPictureButton.setEnabled(true);
+                        sendTestButton.setEnabled(true);
                     }
                 });
             }
@@ -301,11 +310,15 @@ public class MainActivity extends Activity {
         // 文字转图模式：本地把文字渲染成透明底 PNG，设备端按 PICTURE 显示
         String mediaOldPath = null;
         String mediaNewPath = null;
-        if (mode == MODE_PICTURE) {
+        String mediaOrigName = null;
+        if (mode == MODE_PICTURE || mode == MODE_TEST) {
             report("Rendering text to PNG (" + screenWidth + "x" + screenHeight + ")");
-            File png = renderTextToPng(text, fontFamily, fontSize, screenWidth, screenHeight);
+            File png = mode == MODE_TEST
+                    ? renderTestPattern(screenWidth, screenHeight)
+                    : renderTextToPng(text, fontFamily, fontSize, screenWidth, screenHeight);
             mediaOldPath = png.getAbsolutePath();
             mediaNewPath = md5Hex(png) + ".png";
+            mediaOrigName = png.getName();
             report("Text PNG: " + mediaOldPath + " -> " + mediaNewPath + " (" + png.length() + " bytes)");
         }
 
@@ -321,12 +334,14 @@ public class MainActivity extends Activity {
 
         report("Setting text page (program " + programId + ")"
                 + (mode == MODE_DOC ? " per doc example 4.30.1.4"
-                : mode == MODE_PICTURE ? " as text PNG" : ""));
+                : mode == MODE_PICTURE || mode == MODE_TEST ? " as text PNG" : ""));
         final String pageRequest = (mode == MODE_DOC
                 ? TextProgramPayload.pageDocExample(programId)
-                : mode == MODE_PICTURE
-                    ? TextProgramPayload.pagePicture(programId, mediaNewPath, mediaOldPath)
-                    : TextProgramPayload.page(programId, text, fontFamily, fontSize)).toString();
+                : mode == MODE_TEST
+                    ? TextProgramPayload.pagePictureDocExample(programId, mediaNewPath, mediaOldPath, mediaOrigName)
+                    : mode == MODE_PICTURE
+                        ? TextProgramPayload.pagePicture(programId, mediaNewPath, mediaOldPath)
+                        : TextProgramPayload.page(programId, text, fontFamily, fontSize)).toString();
         report("nvSetPageProgramAsync request=" + pageRequest);
         await("nvSetPageProgramAsync", STEP_TIMEOUT_MS, new SdkCall() {
             @Override public void invoke(ViplexCore.CallBack cb) { core.nvSetPageProgramAsync(pageRequest, cb); }
@@ -398,6 +413,29 @@ public class MainActivity extends Activity {
             canvas.drawText(lines[i], width / 2f, lineCenterY + centerOffset, paint);
         }
         File file = new File(sdkDir, "text_" + System.currentTimeMillis() + ".png");
+        FileOutputStream out = new FileOutputStream(file);
+        try {
+            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out))
+                throw new Exception("PNG compression failed");
+        } finally {
+            out.close();
+            bitmap.recycle();
+        }
+        return file;
+    }
+
+    /** 判决性测试图：不透明洋红底 + 白色 TEST 大字，与文字渲染无关，用于验证老管道能否放图。 */
+    private File renderTestPattern(int width, int height) throws Exception {
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        canvas.drawColor(0xFFFF00FF);
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setColor(0xFFFFFFFF);
+        paint.setTextSize(Math.min(width, height) * 0.5f);
+        paint.setTextAlign(Paint.Align.CENTER);
+        float y = height / 2f - (paint.descent() + paint.ascent()) / 2f;
+        canvas.drawText("TEST", width / 2f, y, paint);
+        File file = new File(sdkDir, "testpattern_" + System.currentTimeMillis() + ".png");
         FileOutputStream out = new FileOutputStream(file);
         try {
             if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out))

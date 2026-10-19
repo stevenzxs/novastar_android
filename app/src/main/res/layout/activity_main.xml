@@ -147,6 +147,16 @@
                 android:minHeight="48dp"
                 android:textColor="@android:color/white"
                 android:text="@string/send_picture" />
+
+            <Button
+                android:id="@+id/send_test_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/send_button_background"
+                android:minHeight="48dp"
+                android:textColor="@android:color/white"
+                android:text="@string/send_test" />
         </LinearLayout>
         <TextView
             android:layout_width="match_parent"
